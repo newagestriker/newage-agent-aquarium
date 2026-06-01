@@ -30,8 +30,3 @@ client = QdrantClient(
     host=os.getenv("QDRANT_HOST"),
     port=os.getenv("QDRANT_PORT")
 )
-retriever = QdrantVectorStore(
-    client=client,
-    collection_name=os.getenv("QDRANT_COLLECTION"),
-    embedding=OllamaEmbeddings(model="nomic-embed-text"),
-).as_retriever()
