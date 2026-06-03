@@ -1,7 +1,7 @@
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
-from llms.local_net_llm_gemma import llm
+from llms.local_llm_qwen3_6 import llm
 
 # Create the prompt template as requested
 prompt = ChatPromptTemplate.from_messages(

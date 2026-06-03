@@ -9,6 +9,7 @@ from .nodes.grade_documents import grade_documents
 from .nodes.retrieve import retrieve
 from .nodes.web_search import web_search
 from .state import GraphState
+from .chains.answer_grader import answer_grader_chain
 
 load_dotenv()
 
@@ -30,6 +31,15 @@ def generate_end(state: GraphState) -> GraphState:
         "generation": "I can only answer questions related to aquariums and fishkeeping.",
     }
 
+def decide_to_websearch_or_conclude(state: GraphState) -> GraphState:
+    print("---DECIDE TO WEBSEARCH OR CONCLUDE---")
+    result = answer_grader_chain.invoke({"question": state["question"], "answer": state["generation"]}) 
+    if result.grade:
+        print("Answer is good, concluding.")
+        return END
+    else:
+        print("Answer is not good, web searching.")
+        return WEBSEARCH
 
 workflow = StateGraph(GraphState)
 
@@ -58,11 +68,13 @@ workflow.add_conditional_edges(
 )
 workflow.add_edge(WEBSEARCH, GENERATE)
 workflow.add_edge(GENERATE, END)
-
+workflow.add_conditional_edges(
+    GENERATE, decide_to_websearch_or_conclude, {WEBSEARCH: WEBSEARCH, END: END}
+)
 app = workflow.compile()
 
 app.get_graph().draw_mermaid_png(output_file_path="graph.png")
 
-result = app.invoke({"question": "what fish food is the best?"})
+result = app.invoke({"question": "what is the easiest fish to keep?"})
 
 print(result["generation"])
