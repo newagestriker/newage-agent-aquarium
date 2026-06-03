@@ -19,4 +19,7 @@ dependencies = [
     "langchain-text-splitters>=1.1.2",
     "langchain-community>=0.4.2",
     "beautifulsoup4>=4.14.3",
+    "langsmith>=0.8.5",
+    "black>=26.5.1",
+    "isort>=8.0.1",
 ]

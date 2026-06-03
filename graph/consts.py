@@ -1,2 +1,6 @@
 RETRIEVE = "retrieve"
 GRADE_DOCUMENTS = "grade_documents"
+ROUTE_QUESTION = "route_question"
+GENERATE_END = "generate_end"
+GENERATE = "generate"
+WEBSEARCH = "websearch"

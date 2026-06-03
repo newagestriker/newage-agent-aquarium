@@ -1,9 +1,10 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from langchain_core.messages import HumanMessage
+from pydantic import BaseModel
 
-from main import app as graph_app, list_thread_ids
+from main import app as graph_app
+from main import list_thread_ids
 
 app = FastAPI(title="Newage Aquarium Agent API")
 
@@ -94,6 +95,7 @@ async def create_thread():
     Create a new thread_id for a fresh conversation session.
     """
     import uuid
+
     thread_id = str(uuid.uuid4())
     return {"thread_id": thread_id}
 
@@ -108,4 +110,5 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

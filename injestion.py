@@ -1,10 +1,10 @@
-from dotenv import load_dotenv
 import os
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_qdrant import QdrantVectorStore
-from qdrant_client import QdrantClient
+
+from dotenv import load_dotenv
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_ollama import OllamaEmbeddings
+from langchain_qdrant import QdrantVectorStore
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 load_dotenv()
 
@@ -26,7 +26,3 @@ QdrantVectorStore.from_documents(
     url=os.getenv("QDRANT_URL"),
 )
 
-client = QdrantClient(
-    host=os.getenv("QDRANT_HOST"),
-    port=os.getenv("QDRANT_PORT")
-)

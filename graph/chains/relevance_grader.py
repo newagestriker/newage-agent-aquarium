@@ -1,15 +1,17 @@
-
-
-from pydantic import BaseModel, Field
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableSequence
+from pydantic import BaseModel, Field
+
 from llms.local_net_llm_gemma import llm
+
 
 class RelevanceGrade(BaseModel):
     """Binary score for relevance of documents retrieved."""
+
     grade: bool = Field(
         description="Whether the retrieved document is relevant to the question. Only answer true if you are highly confident (>0.8). Answer with false for borderline or irrelevant documents.",
     )
+
 
 structured_llm_grader = llm.with_structured_output(RelevanceGrade)
 
@@ -33,7 +35,10 @@ Be STRICT. Only mark documents as relevant when you are confident they genuinely
 grader_prompt = ChatPromptTemplate.from_messages(
     [
         ("system", system_message),
-        ("user", "Question: \n\n {question} \n\n Retrieved Document: \n\n {documents} \n\n Is the document truly relevant and helpful for answering this question? Only answer 'true' if you are highly confident (>80% certain). Otherwise answer 'false'."),
+        (
+            "user",
+            "Question: \n\n {question} \n\n Retrieved Document: \n\n {documents} \n\n Is the document truly relevant and helpful for answering this question? Only answer 'true' if you are highly confident (>80% certain). Otherwise answer 'false'.",
+        ),
     ]
 )
 
