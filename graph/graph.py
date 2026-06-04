@@ -2,14 +2,14 @@ from dotenv import load_dotenv
 from langgraph.graph import END, StateGraph
 
 from .chains.router import router
-from .consts import (GENERATE, GENERATE_END, GRADE_DOCUMENTS, RETRIEVE,
-                     WEBSEARCH)
+from .consts import GENERATE, GENERATE_END, GRADE_DOCUMENTS, RETRIEVE, WEBSEARCH
 from .nodes.generate import generate
 from .nodes.grade_documents import grade_documents
 from .nodes.retrieve import retrieve
 from .nodes.web_search import web_search
 from .state import GraphState
 from .chains.answer_grader import answer_grader_chain
+from .chains.hallucination_grader import hallucination_grader_chain
 
 load_dotenv()
 
@@ -31,15 +31,34 @@ def generate_end(state: GraphState) -> GraphState:
         "generation": "I can only answer questions related to aquariums and fishkeeping.",
     }
 
-def decide_to_websearch_or_conclude(state: GraphState) -> GraphState:
-    print("---DECIDE TO WEBSEARCH OR CONCLUDE---")
-    result = answer_grader_chain.invoke({"question": state["question"], "answer": state["generation"]}) 
-    if result.grade:
-        print("Answer is good, concluding.")
-        return END
+
+def decide_to_websearch_or_conclude_or_retry(state: GraphState) -> GraphState:
+    print("---DECIDE TO WEBSEARCH OR CONCLUDE OR RETRY ---")
+    question = state["question"]
+    documents = state["documents"]
+    generation = state["generation"]
+    
+    hallucination_result = hallucination_grader_chain.invoke(
+        {
+            "question": question,
+            "documents": documents,
+            "generation": generation,
+        }
+    )
+    answer_result = answer_grader_chain.invoke(
+        {"question": question, "answer": generation}
+    )
+    if hallucination_result.grade:
+        if answer_result.grade:
+            print("Answer is good, concluding.")
+            return END
+        else:
+            print("Answer is not good, web searching.")
+            return WEBSEARCH
     else:
-        print("Answer is not good, web searching.")
-        return WEBSEARCH
+        print("Answer is hallucinated, retrying generation.")
+        return GENERATE
+
 
 workflow = StateGraph(GraphState)
 
@@ -69,12 +88,14 @@ workflow.add_conditional_edges(
 workflow.add_edge(WEBSEARCH, GENERATE)
 workflow.add_edge(GENERATE, END)
 workflow.add_conditional_edges(
-    GENERATE, decide_to_websearch_or_conclude, {WEBSEARCH: WEBSEARCH, END: END}
+    GENERATE,
+    decide_to_websearch_or_conclude_or_retry,
+    {WEBSEARCH: WEBSEARCH, END: END, GENERATE: GENERATE},
 )
 app = workflow.compile()
 
 app.get_graph().draw_mermaid_png(output_file_path="graph.png")
 
-result = app.invoke({"question": "what is the easiest fish to keep?"})
+result = app.invoke({"question": "What is Epistylis?"})
 
 print(result["generation"])

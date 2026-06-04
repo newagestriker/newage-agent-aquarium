@@ -18,3 +18,4 @@ class GraphState(TypedDict):
     websearch: bool
     end_app: bool
     documents: List[str]
+    websearch_iteration: int
