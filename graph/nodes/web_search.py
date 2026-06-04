@@ -39,4 +39,4 @@ def web_search(state: GraphState) -> Dict[str, Any]:
     print("Rephrased Question for Web Search:", rephrased_question)
     results = web_search_tool.invoke({"query": rephrased_question})["results"]
     webresults = web_to_documents({"results": results})
-    return {"documents": [webresults], "question": question, "websearch_iteration": iteration}
+    return {**state, "documents": [webresults], "question": rephrased_question, "websearch_iteration": iteration}

@@ -11,6 +11,7 @@ class GraphState(TypedDict):
         web_search: whether to add search
         documents: list of documents
         end_app: whether to directly end the app to continue to retrieve the document
+        websearch_iteration: number of times we've web searched
     """
 
     question: str
