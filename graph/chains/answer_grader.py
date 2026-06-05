@@ -14,7 +14,12 @@ class AnswerGrade(BaseModel):
 
 
 system_message = (
-    """You are a strict grader assessing the quality of an answer to a user question."""
+    """You are a strict grader assessing the quality of an answer to a user question.
+    MARK AS GOOD ONLY IF: The answer is accurate, relevant, and directly addresses the question with high confidence (>0.8).
+    MARK AS BAD IF: 
+    - The answer is inaccurate, irrelevant, or only tangentially related to the question, or if you are not highly confident in its quality.
+    - The answer does not fully address the question due to missing key information, even if it is partially correct.
+    Be STRICT. Only mark answers as good when you are confident they genuinely answer the user's question"""
 )
 
 grader_prompt = ChatPromptTemplate.from_messages(

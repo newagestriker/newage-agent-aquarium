@@ -29,6 +29,7 @@ MARK AS NOT RELEVANT IF:
 - It's generic background information that applies to many topics
 - It mentions the topic but doesn't provide useful information for this specific question
 - The relevance requires significant inference or logical leaps
+- The document only partially answers the question considering the conversation history, but is missing key information needed to fully answer the question
 
 Be STRICT. Only mark documents as relevant when you are confident they genuinely help answer the user's question."""
 
@@ -37,7 +38,7 @@ grader_prompt = ChatPromptTemplate.from_messages(
         ("system", system_message),
         (
             "user",
-            "Question: \n\n {question} \n\n Retrieved Document: \n\n {documents} \n\n Is the document truly relevant and helpful for answering this question? Only answer 'true' if you are highly confident (>80% certain). Otherwise answer 'false'.",
+            "Question: \n\n {question} \n\n Retrieved Document: \n\n {documents}  \n\n Conversation History: \n\n {messages} \n\n Is the document truly relevant and helpful for answering this question? Only answer 'true' if you are highly confident (>80% certain). Otherwise answer 'false'.",
         ),
     ]
 )
