@@ -3,8 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 
-from main import app as graph_app
-from main import list_thread_ids
+from graph.graph import app as graph_app
+from graph.graph import list_thread_ids
 
 app = FastAPI(title="Newage Aquarium Agent API")
 
@@ -43,16 +43,15 @@ async def query(request: QueryRequest):
     Caller only needs to send the new message and a thread_id (session ID).
     """
     try:
-        messages = [HumanMessage(content=request.query)]
-
-        # Invoke the graph with checkpointer managing session state
+        # For graph.py which uses GraphState, we need to pass the question field
+        # The checkpointer will manage conversation history based on thread_id
         result = graph_app.invoke(
-            {"messages": messages},
+            {"question": request.query},
             config={"configurable": {"thread_id": request.thread_id}},
         )
 
-        last_message = result["messages"][-1]
-        return {"response": last_message.content}
+        # Return the generation from the result
+        return {"response": result["generation"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -65,20 +64,42 @@ async def get_history(thread_id: str):
     """
     try:
         config = {"configurable": {"thread_id": thread_id}}
-        state = graph_app.get_state(config)
-
-        messages = []
-        for msg in state.values["messages"]:
-            role = "user" if msg.type == "human" else "assistant"
-            messages.append({"role": role, "content": msg.content})
-
+        try:
+            state = graph_app.get_state(config)
+            
+            messages = []
+            if hasattr(state, 'values') and state.values is not None:
+                # LangGraph stores messages in a different structure
+                # Check if there are messages in the state
+                if "messages" in state.values:
+                    for msg in state.values["messages"]:
+                        role = "user" if msg.type == "human" else "assistant"
+                        messages.append({"role": role, "content": msg.content})
+                # If messages field doesn't exist, try to get all messages from state
+                elif hasattr(state, 'values') and state.values is not None:
+                    # Try to get messages from the state values
+                    for key, value in state.values.items():
+                        if key == "messages":
+                            for msg in value:
+                                role = "user" if msg.type == "human" else "assistant"
+                                messages.append({"role": role, "content": msg.content})
+        except Exception as e:
+            # If we can't get the state, return empty history
+            # This handles cases where thread_id doesn't exist
+            if "No state found for thread" in str(e) or "thread_id" in str(e).lower():
+                return {"thread_id": thread_id, "messages": []}
+            else:
+                # Re-raise other exceptions
+                raise e
+        
         return {"thread_id": thread_id, "messages": messages}
     except Exception as e:
+        # If the thread_id doesn't exist or has no state, return empty history
+        if "No state found for thread" in str(e) or "thread_id" in str(e).lower():
+            return {"thread_id": thread_id, "messages": []}
         raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.get("/api/threads")
-async def threads():
+async def get_threads():
     """
     List all thread_ids (sessions) that have checkpointed state.
     """

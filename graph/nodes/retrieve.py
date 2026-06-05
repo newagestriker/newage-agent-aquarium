@@ -58,4 +58,4 @@ def retrieve(state: GraphState) -> Dict[str, Any]:
         print(f"ERROR during retrieval: {type(e).__name__}: {e}")
         documents = []
 
-    return {"documents": documents, "question": question}
+    return {**state, "documents": documents, "question": question}

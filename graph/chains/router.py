@@ -16,10 +16,11 @@ router_prompt = ChatPromptTemplate.from_messages(
         (
             "system",
             "You are a strict aquarium and fishkeeping assistant. "
+            "Take into consideration the messages in the conversation so far to determine if the question is related to aquariums or fishkeeping."
             "If the user question is related to aquariums, fish, fishkeeping, water quality, tank setup, fish diseases, or aquatic life, set end_app to False. "
-            "If the question is about anything else, set end_app to True.",
+            "If the question is about anything else, set end_app to True."
         ),
-        ("user", "User question: {question}"),
+        ("user", "User question: {question} \n\n Conversation so far: {messages}"),
     ]
 )
 

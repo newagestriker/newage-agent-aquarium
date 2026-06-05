@@ -1,4 +1,5 @@
 from typing import List, TypedDict
+from langchain_core.messages import BaseMessage
 
 
 class GraphState(TypedDict):
@@ -12,6 +13,7 @@ class GraphState(TypedDict):
         documents: list of documents
         end_app: whether to directly end the app to continue to retrieve the document
         websearch_iteration: number of times we've web searched
+        messages: list of messages in the conversation
     """
 
     question: str
@@ -20,3 +22,4 @@ class GraphState(TypedDict):
     end_app: bool
     documents: List[str]
     websearch_iteration: int
+    messages: List[BaseMessage]

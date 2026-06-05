@@ -20,11 +20,12 @@ llm_web_search_prompt = ChatPromptTemplate.from_messages(
             "system",
             "You are an assistant that modifies a question to find information related to aquariums and fishkeeping. "
             "When given a question, rephrase it to be more specific to aquariums and fishkeeping to retrieve relevant information. "
+            "Make sure to use the conversation history to understand the context and rephrase the question in a way that is more likely to yield relevant search results about aquariums and fishkeeping. "
             "If the question is already specific to aquariums and fishkeeping, keep it as is. "
             "Make sure to include aquarium-related keywords to get the most relevant search results."
             "If web search iteration is greater than 1, make the question more specific to aquariums and fishkeeping and include more relevant keywords to ensure you get useful information from the web search.",
         ),
-        ("human", "Question: {question}\n\n Iteration: {websearch_iteration}\n\n Rephrased Question:"),
+        ("human", "Question: {question}\n\n Iteration: {messages}\n\n Conversation History: {messages}\n\n Rephrased Question:"),
     ]
 )
 
@@ -34,8 +35,9 @@ question_rephraser = llm_web_search_prompt | llm | StrOutputParser()
 def web_search(state: GraphState) -> Dict[str, Any]:
     question = state["question"]
     iteration = state.get("websearch_iteration", 0) + 1
+    messages = state.get("messages", [])
     print(f"---PERFORM WEB SEARCH--- {iteration}")
-    rephrased_question = question_rephraser.invoke({"question": question, "websearch_iteration": iteration})
+    rephrased_question = question_rephraser.invoke({"question": question, "websearch_iteration": iteration, "messages": messages})
     print("Rephrased Question for Web Search:", rephrased_question)
     results = web_search_tool.invoke({"query": rephrased_question})["results"]
     webresults = web_to_documents({"results": results})
