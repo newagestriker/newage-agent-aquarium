@@ -1,6 +1,7 @@
+from datetime import datetime, timezone
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 
 from graph.graph import app as graph_app
@@ -29,11 +30,13 @@ class QueryRequest(BaseModel):
 
 class QueryResponse(BaseModel):
     response: str
+    timestamp: str
 
 
 class MessageItem(BaseModel):
     role: str
     content: str
+    timestamp: str
 
 
 @app.post("/api/query", response_model=QueryResponse)
@@ -51,7 +54,10 @@ async def query(request: QueryRequest):
         )
 
         # Return the generation from the result
-        return {"response": result["generation"]}
+        return {
+            "response": result["generation"],
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -64,34 +70,23 @@ async def get_history(thread_id: str):
     """
     try:
         config = {"configurable": {"thread_id": thread_id}}
-        try:
-            state = graph_app.get_state(config)
-            
-            messages = []
-            if hasattr(state, 'values') and state.values is not None:
-                # LangGraph stores messages in a different structure
-                # Check if there are messages in the state
-                if "messages" in state.values:
-                    for msg in state.values["messages"]:
-                        role = "user" if msg.type == "human" else "assistant"
-                        messages.append({"role": role, "content": msg.content})
-                # If messages field doesn't exist, try to get all messages from state
-                elif hasattr(state, 'values') and state.values is not None:
-                    # Try to get messages from the state values
-                    for key, value in state.values.items():
-                        if key == "messages":
-                            for msg in value:
-                                role = "user" if msg.type == "human" else "assistant"
-                                messages.append({"role": role, "content": msg.content})
-        except Exception as e:
-            # If we can't get the state, return empty history
-            # This handles cases where thread_id doesn't exist
-            if "No state found for thread" in str(e) or "thread_id" in str(e).lower():
-                return {"thread_id": thread_id, "messages": []}
-            else:
-                # Re-raise other exceptions
-                raise e
-        
+        messages = []
+
+        # Get checkpoint history with per-checkpoint timestamps
+        history = graph_app.get_history(config)
+        for snapshot in history:
+            # Each checkpoint has a datetime timestamp from SqliteSaver
+            ts = snapshot.timestamp.isoformat() if snapshot.timestamp else datetime.now(timezone.utc).isoformat()
+
+            if "messages" in snapshot.values:
+                for msg in snapshot.values["messages"]:
+                    role = "user" if msg.type == "human" else "assistant"
+                    messages.append({
+                        "role": role,
+                        "content": msg.content,
+                        "timestamp": ts,
+                    })
+
         return {"thread_id": thread_id, "messages": messages}
     except Exception as e:
         # If the thread_id doesn't exist or has no state, return empty history
