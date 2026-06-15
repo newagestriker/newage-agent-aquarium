@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import uuid
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,22 +22,28 @@ app.add_middleware(
 class ChatMessage(BaseModel):
     role: str  # "user" or "assistant"
     content: str
+    id: str
 
 
 class QueryRequest(BaseModel):
     query: str
     thread_id: str  # Session identifier managed by caller
+    id: str  # Client-provided ID to track this query
 
 
 class QueryResponse(BaseModel):
     response: str
     timestamp: str
+    id: str 
+    role: str
+
 
 
 class MessageItem(BaseModel):
     role: str
     content: str
     timestamp: str
+    id: str
 
 
 @app.post("/api/query", response_model=QueryResponse)
@@ -49,14 +56,21 @@ async def query(request: QueryRequest):
         # For graph.py which uses GraphState, we need to pass the question field
         # The checkpointer will manage conversation history based on thread_id
         result = graph_app.invoke(
-            {"question": request.query},
+            {"question": request.query, "query_id": request.id},
             config={"configurable": {"thread_id": request.thread_id}},
         )
 
+        # Get the response_id from the last message in the result
+        messages = result.get("messages", [])
+        last_message = messages[-1] if messages else None
+        message_id = last_message.id if last_message else ""
+        print(result)
         # Return the generation from the result
         return {
             "response": result["generation"],
             "timestamp": datetime.now(timezone.utc).isoformat(),
+            "id": message_id,
+            "role" : "assistant",
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -85,6 +99,7 @@ async def get_history(thread_id: str):
                         "role": role,
                         "content": msg.content,
                         "timestamp": ts,
+                        "id": msg.id or "",
                     })
 
         return {"thread_id": thread_id, "messages": messages}
@@ -93,6 +108,7 @@ async def get_history(thread_id: str):
         if "No state found for thread" in str(e) or "thread_id" in str(e).lower():
             return {"thread_id": thread_id, "messages": []}
         raise HTTPException(status_code=500, detail=str(e))
+    
 @app.get("/api/threads")
 async def get_threads():
     """

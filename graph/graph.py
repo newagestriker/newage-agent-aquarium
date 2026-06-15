@@ -1,4 +1,5 @@
 import sqlite3
+import uuid
 
 from dotenv import load_dotenv
 from langgraph.graph import END, StateGraph
@@ -6,13 +7,14 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langchain_core.messages import AIMessage, HumanMessage
 
 from .chains.router import router
-from .consts import GENERATE, GENERATE_END, GRADE_DOCUMENTS, RETRIEVE, WEBSEARCH, INJEST, INITIALIZE
+from .consts import GENERATE, GENERATE_END, GRADE_DOCUMENTS, RETRIEVE, WEBSEARCH, INJEST, INITIALIZE, SUMMARIZE
 from .nodes.generate import generate
 from .nodes.grade_documents import grade_documents
 from .nodes.retrieve import retrieve
 from .nodes.web_search import web_search
 from .nodes.injest import injest
 from .nodes.initialize import initialize
+from .nodes.summarize import summarization_node
 from .state import GraphState
 from .chains.answer_grader import answer_grader_chain
 from .chains.hallucination_grader import hallucination_grader_chain
@@ -23,9 +25,9 @@ load_dotenv()
 def route_question(state: GraphState) -> GraphState:
     print("---ROUTE QUESTION---")
     question = state["question"]
-    messages = state.get("messages", [])
-    messages.append(HumanMessage(content=question))
-    result = router.invoke({"question": question, "messages": messages})
+    query_id = state.get("query_id", "")
+    summarized_messages = state.get("summarized_messages",[])
+    result = router.invoke({"question": question, "summarized_messages": summarized_messages})
     return GENERATE_END if result.end_app else RETRIEVE
 
 
@@ -35,12 +37,9 @@ def decide_to_generate(state: GraphState) -> GraphState:
 
 
 def generate_end(state: GraphState) -> GraphState:
-    messages = state.get("messages", [])
-    messages.append(AIMessage(content="I can only answer questions related to aquariums and fishkeeping."))
     return {
         **state,
         "generation": "I can only answer questions related to aquariums and fishkeeping.",
-        "messages": messages
     }
 
 
@@ -63,7 +62,7 @@ def decide_to_websearch_or_conclude_or_retry(state: GraphState) -> GraphState:
     if hallucination_result.grade:
         if answer_result.grade:
             print("Answer is good, concluding.")
-            return END
+            return SUMMARIZE
         else:
             print("Answer is not good, web searching.")
             return WEBSEARCH
@@ -86,7 +85,7 @@ workflow.add_node(GRADE_DOCUMENTS, grade_documents)
 workflow.add_node(WEBSEARCH, web_search)
 workflow.add_node(INJEST, injest)
 workflow.add_node(INITIALIZE, initialize)
-
+workflow.add_node(SUMMARIZE, summarization_node)
 workflow.set_conditional_entry_point(
     route_question,
     {
@@ -105,15 +104,14 @@ workflow.add_conditional_edges(
     },
 )
 workflow.add_edge(WEBSEARCH, GENERATE)
-workflow.add_edge(GENERATE, END)
 workflow.add_conditional_edges(
     GENERATE,
     decide_to_websearch_or_conclude_or_retry,
-    {WEBSEARCH: WEBSEARCH, END: END, GENERATE: GENERATE},
+    {WEBSEARCH: WEBSEARCH, SUMMARIZE: SUMMARIZE, GENERATE: GENERATE},
 )
 
 workflow.add_conditional_edges(
-    GENERATE,
+    SUMMARIZE,
     decide_to_injest_if_web_generated,
     {INJEST: INJEST, END: END},
 )
@@ -152,8 +150,12 @@ app = workflow.compile(checkpointer=checkpointer)
 # The checkpointer will automatically handle state management for each thread_id
 # This allows conversation context to be maintained across multiple invocations
 
-app.get_graph().draw_mermaid_png(output_file_path="graph.png")
+if __name__ == '__main__':
+    app.get_graph().draw_mermaid_png(output_file_path="graph.png")
 
-#result = app.invoke({"question": "What is a Walstad Tank?"})
+    result = app.invoke({"question": "What is a Walstad Tank?", "query_id": str(uuid.uuid4())},  config={"configurable": {"thread_id": "session-1"}})
+    print(result["generation"])
+    result = app.invoke({"question": "How to set it up?", "query_id": str(uuid.uuid4())},  config={"configurable": {"thread_id": "session-1"}})
 
-#print(result["generation"])
+    print(result["generation"])
+    print(result)

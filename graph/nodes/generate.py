@@ -1,3 +1,4 @@
+import uuid
 from typing import Any, Dict
 from langchain_core.messages import AIMessage
 
@@ -11,7 +12,4 @@ def generate(state: GraphState) -> Dict[str, Any]:
     context = state["documents"]
 
     generation = generation_chain.invoke({"question": question, "context": context})
-    # Add the AI response to the messages list
-    messages = state.get("messages", [])
-    messages.append(AIMessage(content=generation))
-    return {**state, "generation": generation, "messages": messages}
+    return {**state, "generation": generation}

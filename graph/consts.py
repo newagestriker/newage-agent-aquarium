@@ -6,3 +6,4 @@ GENERATE = "generate"
 WEBSEARCH = "websearch"
 INJEST = "injest"
 INITIALIZE = "initialize"
+SUMMARIZE = 'summarize'
