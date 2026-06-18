@@ -32,7 +32,7 @@ class QueryRequest(BaseModel):
 
 
 class QueryResponse(BaseModel):
-    response: str
+    content: str
     timestamp: str
     id: str 
     role: str
@@ -67,7 +67,7 @@ async def query(request: QueryRequest):
         print(result)
         # Return the generation from the result
         return {
-            "response": result["generation"],
+            "content": result["generation"],
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "id": message_id,
             "role" : "assistant",
@@ -87,10 +87,10 @@ async def get_history(thread_id: str):
         messages = []
 
         # Get checkpoint history with per-checkpoint timestamps
-        history = graph_app.get_history(config)
+        history = graph_app.get_state_history(config)
         for snapshot in history:
             # Each checkpoint has a datetime timestamp from SqliteSaver
-            ts = snapshot.timestamp.isoformat() if snapshot.timestamp else datetime.now(timezone.utc).isoformat()
+            ts = snapshot.created_at or datetime.now(timezone.utc).isoformat()
 
             if "messages" in snapshot.values:
                 for msg in snapshot.values["messages"]:
@@ -107,6 +107,7 @@ async def get_history(thread_id: str):
         # If the thread_id doesn't exist or has no state, return empty history
         if "No state found for thread" in str(e) or "thread_id" in str(e).lower():
             return {"thread_id": thread_id, "messages": []}
+        print(str(e))
         raise HTTPException(status_code=500, detail=str(e))
     
 @app.get("/api/threads")
@@ -138,6 +139,33 @@ async def health():
     Health check endpoint.
     """
     return {"status": "ok"}
+
+@app.delete("/api/history/{thread_id}")
+async def clear_history(thread_id: str):
+    try:
+        if not hasattr(graph_app, "checkpointer") or graph_app.checkpointer is None:
+            raise HTTPException(status_code=500, detail="No checkpointer configured")
+
+        await graph_app.checkpointer.adelete_thread(thread_id)
+
+        return {"thread_id": thread_id, "cleared": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/history")
+async def clear_all_history():
+    try:
+        if not hasattr(graph_app, "checkpointer") or graph_app.checkpointer is None:
+            raise HTTPException(status_code=500, detail="No checkpointer configured")
+
+        thread_ids = list_thread_ids()
+
+        for thread_id in thread_ids:
+            graph_app.checkpointer.delete_thread(thread_id)
+
+        return {"cleared": True, "thread_ids": thread_ids}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
