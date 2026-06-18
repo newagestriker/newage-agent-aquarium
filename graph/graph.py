@@ -37,9 +37,11 @@ def decide_to_generate(state: GraphState) -> GraphState:
 
 
 def generate_end(state: GraphState) -> GraphState:
+    generation = "I can only answer questions related to aquariums and fishkeeping."
     return {
         **state,
-        "generation": "I can only answer questions related to aquariums and fishkeeping.",
+        "generation": generation,
+        "messages": [AIMessage(content=generation, id=str(uuid.uuid4()))],
     }
 
 
@@ -158,4 +160,5 @@ if __name__ == '__main__':
     result = app.invoke({"question": "How to set it up?", "query_id": str(uuid.uuid4())},  config={"configurable": {"thread_id": "session-1"}})
 
     print(result["generation"])
-    print(result)
+    print(result["messages"])
+    print(result["summarized_messages"])

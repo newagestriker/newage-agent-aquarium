@@ -1,6 +1,8 @@
 import os
+import uuid
 from typing import Any, Dict
 
+from langchain_core.messages import HumanMessage
 from langchain_ollama import OllamaEmbeddings
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
@@ -58,4 +60,9 @@ def retrieve(state: GraphState) -> Dict[str, Any]:
         print(f"ERROR during retrieval: {type(e).__name__}: {e}")
         documents = []
 
-    return {**state, "documents": documents, "question": question}
+    return {
+        **state,
+        "documents": documents,
+        "question": question,
+        "messages": [HumanMessage(content=question, id=str(uuid.uuid4()))],
+    }

@@ -12,4 +12,7 @@ def generate(state: GraphState) -> Dict[str, Any]:
     context = state["documents"]
 
     generation = generation_chain.invoke({"question": question, "context": context})
-    return {**state, "generation": generation}
+    return {
+        "generation": generation,
+        "messages": [AIMessage(content=generation, id=str(uuid.uuid4()))],
+    }
